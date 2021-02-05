@@ -12,6 +12,77 @@
 #include <string.h>
 #include "LCDandKeypad.h"
 
+//**************** Linked List *****************************************************************************************************  
+
+struct node
+{
+	int data;
+	struct node *next;
+};
+
+  
+void addLast(struct node **head, int val)
+{
+	//create a new node
+	struct node *newNode = malloc(sizeof(struct node));
+	newNode->data = val;
+	newNode->next     = NULL;
+
+	//if head is NULL, it is an empty list
+	if(*head == NULL)
+	*head = newNode;
+	//Otherwise, find the last node and add the newNode
+	else
+	{
+		struct node *lastNode = *head;
+
+		//last node's next address will be NULL.
+		while(lastNode->next != NULL)
+		{
+			lastNode = lastNode->next;
+		}
+
+		//add the newNode at the end of the linked list
+		lastNode->next = newNode;
+	}
+
+}
+
+void deleteNode(struct node **head_ref, int key)
+{
+	// Store head node
+	struct node* temp = *head_ref, *prev;
+	
+	// If head node itself holds the key to be deleted
+	if (temp != NULL && temp->data == key)
+	{
+		*head_ref = temp->next;   // Changed head
+		free(temp);               // free old head
+		return;
+	}
+	
+	// Search for the key to be deleted, keep track of the
+	// previous node as we need to change 'prev->next'
+	while (temp != NULL && temp->data != key)
+	{
+		prev = temp;
+		temp = temp->next;
+	}
+	
+	// If key was not present in linked list
+	if (temp == NULL) return;
+	
+	// Unlink the node from linked list
+	prev->next = temp->next;
+	
+	free(temp);  // Free memory
+}
+
+struct node* head = NULL;
+struct node* current_turn = NULL;
+
+
+//**********************************************************************************************************************************
 //**************** VARIABLES PART *********************************************************************************************
 
 int starting_number ;
@@ -27,18 +98,93 @@ int counter;
 char pressed;
 int PINB_capture;
 
+int second_capture;
+
+//*********************************************************************************************************************************
+
+int winner()
+{
+	int wornot = 0;
+	if (head->next == NULL && players_number != 1)
+	{
+		_delay_ms(1000);
+		lcd_init();
+		lcd_gotoxy(9,1);
+		char str[80];
+		sprintf(str,"P%d Won!",current_turn->data);
+		lcd_print(str);
+		wornot = 1;
+	}
+	return wornot;
+}
+
+void game_next()
+{
+		current_number ++ ;
+		/*har junk2[5] ;
+		lcd_gotoxy(1,4);
+		itoa(current_turn->data,junk2,10);
+		lcd_print(junk2);*/
+		if((current_number - starting_number)% hop_number != 0) //it is not hop
+		{
+			lcd_gotoxy(9,3);
+			char output[5] ;
+			sprintf(output,"*%d*",current_number);
+			lcd_print(output);	
+			lcd_gotoxy(1,1);
+
+				current_turn = current_turn->next;
+				if (current_turn == NULL)
+				{
+					current_turn = head;
+				}
+			char str[80];
+			sprintf(str,"P%d turn",current_turn->data);
+			lcd_print(str);
+		}
+			else // it is hop
+			{
+				lcd_print("It was hop!");
+				lcd_gotoxy(1,2);
+				lcd_print("You lost!");
+				lcd_gotoxy(1,3);
+				deleteNode(&head,current_turn->data);
+				if (players_number != 1)
+				{
+						current_turn = current_turn->next;
+						if (current_turn == NULL)
+						{
+							current_turn = head;
+						}
+						if (!winner())
+						{
+							char str[80];
+							sprintf(str,"P%d turn",current_turn->data);
+							lcd_print(str);
+							lcd_gotoxy(9,3);
+							char output[5] ;
+							sprintf(output,"*%d*",current_number);
+							lcd_print(output);
+						}
+				}
+			}
+}
 
 
 int main (void)
 {
 	DDRB = 0x00;
-
+	DDRD = 0xFD;
 	// current_turn->data =  head->data;
 	// current_turn->next = head->next;
 	MCUCR = 0x03; //make INT0 rising edge triggered
 	GICR = (1 << INT0); // enable external interrupt0 
 	
-	
+	counter = 0;
+	OCR1A = 7811;
+	TCCR1A = 0x00;
+	TCCR1B = 0x0D;
+	TIMSK = (1<<OCIE1A);
 	
 	lcd_init();
 	lcd_print("Number of Players:");
@@ -142,4 +288,115 @@ ISR (INT0_vect)
 		}
 	}
 
+}
+ISR (INT1_vect)
+{
+	PINB_capture = PINB;
+
+		lcd_init();
+
+		if(counter == 3)
+		{
+			current_turn = head;
+			counter++;
+		}
+
+		
+			if(PINB_capture == 0x01) //p1 next
+			{
+				if(current_turn->data == 1) 
+				{
+					game_next();
+				}
+				else
+				{
+					//notyourturn();
+				}
+			}
+
+			else if(PINB_capture == 0x02) //p1 hop
+			{
+				if (current_turn->data == 1)
+				{
+					//game_hop();
+
+				}
+				else
+				{
+					//notyourturn();
+				}
+			}
+
+			else if(PINB_capture == 0x04) //p2 next
+			{
+				if (current_turn->data == 2)
+				{
+					game_next();
+				}
+				else
+				{
+					//notyourturn();
+				}
+			}
+			else if(PINB_capture == 0x08) //p2 hop
+			{
+				if (current_turn->data == 2)
+				{
+					//game_hop();
+				}
+				else
+				{
+					//notyourturn();
+				}
+			}
+		
+			else if(PINB_capture == 0x10) //p3 next
+			{
+				if (current_turn->data == 3)
+				{
+					game_next();
+				}
+				else
+				{
+					//notyourturn();
+				}
+			}
+			else if(PINB_capture == 0x20) //p3 hop
+			{
+				if (current_turn->data == 3)
+				{
+					//game_hop();
+				}
+				else
+				{
+					//notyourturn();
+				}
+			}
+			else if(PINB_capture == 0x40) //p4 next
+			{
+				if (current_turn->data == 4)
+				{
+					game_next();
+				}
+				else
+				{
+					//notyourturn();
+				}
+			}
+			else if(PINB_capture == 0x80) // p4 hop
+			{
+				if (current_turn->data == 4)
+				{
+					//game_hop();
+				}
+				else
+				{
+					//notyourturn();
+				}
+			}
+
+		
+		
+	
+	
 }
