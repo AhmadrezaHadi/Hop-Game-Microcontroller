@@ -12,6 +12,18 @@
 #include <string.h>
 #include "LCDandKeypad.h"
 
+
+//************************ TIMER *****************************************************************************************************
+int second = 0;
+
+ISR (TIMER1_COMPA_vect) {
+	second++;
+	if(second == 60){
+		second = 0;
+	}
+	
+}
+
 //**************** Linked List *****************************************************************************************************  
 
 struct node
@@ -170,6 +182,75 @@ void game_next()
 			}
 }
 
+void game_hop()
+{
+		current_number ++ ;
+		if((current_number - starting_number)% hop_number != 0) //it is not hop
+		{
+			lcd_print("It was not hop!");
+			lcd_gotoxy(1,2);
+			lcd_print("You lost!");
+			lcd_gotoxy(1,3);
+
+				deleteNode(&head,current_turn->data);
+				if (players_number != 1)
+				{
+					current_turn = current_turn->next;
+					if (current_turn== NULL)
+					{
+						current_turn = head;
+					}
+					if (!winner())
+					{
+						char str[80];
+						sprintf(str,"P%d turn",current_turn->data);
+						lcd_print(str);
+						lcd_gotoxy(9,3);
+						char output[5] ;
+						sprintf(output,"*%d*",current_number);
+						lcd_print(output);
+					}
+				}
+				
+		}
+		else //it is hop
+		{
+			lcd_gotoxy(9,2);
+			lcd_print("We hopped!");
+			current_number ++ ;
+			lcd_gotoxy(9,3);
+			char output[5] ;
+			sprintf(output,"*%d*",current_number);
+			lcd_print(output);
+			lcd_gotoxy(1,1);
+			current_turn = current_turn->next;
+			if (current_turn == NULL)
+			{
+				current_turn = head;
+			}
+			if (!winner())
+			{
+				char str[80];
+				sprintf(str,"P%d turn",current_turn->data);
+				lcd_print(str);
+			}
+		}
+}
+
+void notyourturn()
+{
+		lcd_gotoxy(1,1);
+		lcd_print("Its not your turn!");
+		lcd_gotoxy(1,2);
+		char str[80];
+		sprintf(str,"P%d turn",current_turn->data);
+		lcd_print(str);
+		lcd_gotoxy(9,3);
+		char output[5] ;
+		sprintf(output,"*%d*",current_number);
+		lcd_print(output);
+		lcd_gotoxy(1,1);
+}
 
 int main (void)
 {
@@ -294,13 +375,26 @@ ISR (INT1_vect)
 	PINB_capture = PINB;
 
 		lcd_init();
-
+		/*char output[5] ;
+		sprintf(output,"*%d*",second);
+		lcd_print(output);
+		lcd_gotoxy(1,2);
+		char output2[5] ;
+		sprintf(output2,"*%d*",second_capture);
+		lcd_print(output2);
+		lcd_gotoxy(1,3);
+		char output3[5] ;
+		int a = second - second_capture;
+		sprintf(output3,"*%d*",a);
+		lcd_print(output3);
+		second_capture = second;*/
 		if(counter == 3)
 		{
 			current_turn = head;
 			counter++;
 		}
-
+		if (second - second_capture < 3)
+		{
 		
 			if(PINB_capture == 0x01) //p1 next
 			{
@@ -310,7 +404,7 @@ ISR (INT1_vect)
 				}
 				else
 				{
-					//notyourturn();
+					notyourturn();
 				}
 			}
 
@@ -318,12 +412,12 @@ ISR (INT1_vect)
 			{
 				if (current_turn->data == 1)
 				{
-					//game_hop();
+					game_hop();
 
 				}
 				else
 				{
-					//notyourturn();
+					notyourturn();
 				}
 			}
 
@@ -335,18 +429,18 @@ ISR (INT1_vect)
 				}
 				else
 				{
-					//notyourturn();
+					notyourturn();
 				}
 			}
 			else if(PINB_capture == 0x08) //p2 hop
 			{
 				if (current_turn->data == 2)
 				{
-					//game_hop();
+					game_hop();
 				}
 				else
 				{
-					//notyourturn();
+					notyourturn();
 				}
 			}
 		
@@ -358,18 +452,18 @@ ISR (INT1_vect)
 				}
 				else
 				{
-					//notyourturn();
+					notyourturn();
 				}
 			}
 			else if(PINB_capture == 0x20) //p3 hop
 			{
 				if (current_turn->data == 3)
 				{
-					//game_hop();
+					game_hop();
 				}
 				else
 				{
-					//notyourturn();
+					notyourturn();
 				}
 			}
 			else if(PINB_capture == 0x40) //p4 next
@@ -380,23 +474,53 @@ ISR (INT1_vect)
 				}
 				else
 				{
-					//notyourturn();
+					notyourturn();
 				}
 			}
 			else if(PINB_capture == 0x80) // p4 hop
 			{
 				if (current_turn->data == 4)
 				{
-					//game_hop();
+					game_hop();
 				}
 				else
 				{
-					//notyourturn();
+					notyourturn();
 				}
 			}
-
+			second_capture = second;
+		}
+		else
+		{
+			lcd_print("Time is up!");
+			lcd_gotoxy(1,2);
+			lcd_print("You lost!");
+			lcd_gotoxy(1,3);
+			deleteNode(&head,current_turn->data);
+			if (players_number != 1)
+			{
+				current_turn = current_turn->next;
+				if (current_turn == NULL)
+				{
+					current_turn = head;
+				}
+				if (!winner())
+				{
+					char str[80];
+					sprintf(str,"P%d turn",current_turn->data);
+					lcd_print(str);
+					lcd_gotoxy(9,3);
+					char output[5] ;
+					sprintf(output,"*%d*",current_number);
+					lcd_print(output);
+				}
+			}
+			second_capture = second;
+		}
 		
-		
+	
+	
+	
 	
 	
 }
