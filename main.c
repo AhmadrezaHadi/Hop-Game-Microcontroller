@@ -13,16 +13,24 @@
 #include "LCDandKeypad.h"
 
 
-//************************ TIMER *****************************************************************************************************
-int second = 0;
+//**************** VARIABLES PART *********************************************************************************************
 
-ISR (TIMER1_COMPA_vect) {
-	second++;
-	if(second == 60){
-		second = 0;
-	}
-	
-}
+int starting_number ;
+int current_number ;
+int hop_number ;
+int players_number ;
+
+char input[4];
+ int i = 0;     
+
+int counter;
+
+char pressed;
+int PINB_capture;
+
+int second_capture;
+
+//*********************************************************************************************************************************
 
 //**************** Linked List *****************************************************************************************************  
 
@@ -95,29 +103,61 @@ struct node* current_turn = NULL;
 
 
 //**********************************************************************************************************************************
-//**************** VARIABLES PART *********************************************************************************************
 
-int starting_number ;
-int current_number ;
-int hop_number ;
-int players_number ;
+//************************ TIMER *****************************************************************************************************
+int second = 0;
 
-char input[4];
- int i = 0;     
+ISR (TIMER1_COMPA_vect) {
+	second++;
+	if(second == 5){
+		second = 0;
+		lcd_init();
+		lcd_print("Time is up!");
+		lcd_gotoxy(1,2);
+		lcd_print("You lost!");
+		lcd_gotoxy(1,3);
+		deleteNode(&head,current_turn->data);
+		if (players_number != 1)
+		{
+			current_turn = current_turn->next;
+			if (current_turn == NULL)
+			{
+				current_turn = head;
+			}
+			if (!winner())
+			{
+				OCR1A = 7811;
+				TCCR1A = 0x00;
+				TCCR1B = 0x0D;
+				second = 0;
+				char str[80];
+				sprintf(str,"P%d turn",current_turn->data);
+				lcd_print(str);
+				lcd_gotoxy(9,3);
+				char output[5] ;
+				sprintf(output,"*%d*",current_number);
+				lcd_print(output);
+			}
 
-int counter;
+		}
 
-char pressed;
-int PINB_capture;
+	}
 
-int second_capture;
+}
 
-//*********************************************************************************************************************************
+
 
 int winner()
 {
 	int wornot = 0;
-	if (head->next == NULL && players_number != 1)
+	if (head == NULL)
+	{
+			lcd_init();
+			lcd_print("Game is finished!");
+			TIMSK &= ~(1<<OCIE1A);
+			wornot = 2;
+	}
+	else if (head->next == NULL && players_number != 1)
 	{
 		_delay_ms(1000);
 		lcd_init();
@@ -127,11 +167,15 @@ int winner()
 		lcd_print(str);
 		wornot = 1;
 	}
+
 	return wornot;
 }
 
 void game_next()
 {
+	if (winner() != 2)
+	{
+	
 		current_number ++ ;
 		/*har junk2[5] ;
 		lcd_gotoxy(1,4);
@@ -156,6 +200,7 @@ void game_next()
 		}
 			else // it is hop
 			{
+
 				lcd_print("It was hop!");
 				lcd_gotoxy(1,2);
 				lcd_print("You lost!");
@@ -170,6 +215,10 @@ void game_next()
 						}
 						if (!winner())
 						{
+							OCR1A = 7811;
+							TCCR1A = 0x00;
+							TCCR1B = 0x0D;
+							second = 0;
 							char str[80];
 							sprintf(str,"P%d turn",current_turn->data);
 							lcd_print(str);
@@ -180,13 +229,18 @@ void game_next()
 						}
 				}
 			}
+	}
 }
 
 void game_hop()
 {
+	if (winner() != 2)
+	{
+	
 		current_number ++ ;
 		if((current_number - starting_number)% hop_number != 0) //it is not hop
 		{
+			
 			lcd_print("It was not hop!");
 			lcd_gotoxy(1,2);
 			lcd_print("You lost!");
@@ -202,6 +256,10 @@ void game_hop()
 					}
 					if (!winner())
 					{
+						OCR1A = 7811;
+						TCCR1A = 0x00;
+						TCCR1B = 0x0D;
+						second = 0;
 						char str[80];
 						sprintf(str,"P%d turn",current_turn->data);
 						lcd_print(str);
@@ -235,10 +293,14 @@ void game_hop()
 				lcd_print(str);
 			}
 		}
+	}
 }
 
 void notyourturn()
 {
+	if (winner() != 2)
+	{
+	
 		lcd_gotoxy(1,1);
 		lcd_print("Its not your turn!");
 		lcd_gotoxy(1,2);
@@ -250,6 +312,7 @@ void notyourturn()
 		sprintf(output,"*%d*",current_number);
 		lcd_print(output);
 		lcd_gotoxy(1,1);
+	}
 }
 
 int main (void)
@@ -262,10 +325,6 @@ int main (void)
 	GICR = (1 << INT0); // enable external interrupt0 
 	
 	counter = 0;
-	OCR1A = 7811;
-	TCCR1A = 0x00;
-	TCCR1B = 0x0D;
-	TIMSK = (1<<OCIE1A);
 	
 	lcd_init();
 	lcd_print("Number of Players:");
@@ -364,7 +423,6 @@ ISR (INT0_vect)
 			char output[5] ;
 			sprintf(output,"*%d*",current_number);
 			lcd_print(output);
-			second_capture = second;
 			GICR = (1 << INT1);
 		}
 	}
@@ -391,10 +449,15 @@ ISR (INT1_vect)
 		if(counter == 3)
 		{
 			current_turn = head;
+		//	second_capture = second;
+			OCR1A = 7811;
+			TCCR1A = 0x00;
+			TCCR1B = 0x0D;
+			TIMSK = (1<<OCIE1A);
 			counter++;
 		}
-		if (second - second_capture < 3)
-		{
+//		if (second - second_capture < 3)
+//		{
 		
 			if(PINB_capture == 0x01) //p1 next
 			{
@@ -488,8 +551,9 @@ ISR (INT1_vect)
 					notyourturn();
 				}
 			}
-			second_capture = second;
-		}
+//			second_capture = second;
+//		}
+/*
 		else
 		{
 			lcd_print("Time is up!");
@@ -517,10 +581,42 @@ ISR (INT1_vect)
 			}
 			second_capture = second;
 		}
+		*/
+	
+	
+	
 		
-	
-	
-	
-	
+	/*	
+		
+		if (PINB_capture == 0x00)
+		{
+			lcd_print("RESET!");
+			counter == 0;
+			i = 0;
+			if (head != NULL)
+			{
+					for(int k = 0 ; k < players_number ; k++)
+					{
+						deleteNode(&head,k+1);
+					}
+			}
+			_delay_ms(1000);
+			lcd_init();
+			lcd_print("Number of Players:");
+			lcd_gotoxy(1,2);
+			lcd_print("(press * after it)");
+			lcd_gotoxy(1,3);
+			lcd_print("(Max : 4)");
+			lcd_gotoxy(1,4);
+		
+			
+			
+		}*/
+		/**
+		lcd_init();
+		char output[5] ;
+		itoa(PINB_capture,output,10);
+		lcd_print(output);
+		** /*/
 	
 }
